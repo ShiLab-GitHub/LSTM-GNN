@@ -1,0 +1,53 @@
+import numpy as np
+import os
+from lstm_gnn.train import fold_train
+from lstm_gnn.tool import set_log, set_train_argument, mkdir
+from torch.utils.tensorboard import SummaryWriter
+
+
+comment = input("运行名称")
+writer = SummaryWriter(comment=comment)
+
+
+def training(args,log):
+    info = log.info
+    
+    seed_first = args.seed
+    data_path = args.data_path
+    save_path = args.save_path
+    
+    score = []
+    
+    for num_fold in range(args.num_folds):
+        info(f'Seed {args.seed}')
+        args.seed = seed_first + num_fold
+        args.save_path = os.path.join(save_path, f'Seed_{args.seed}')
+        mkdir(args.save_path)
+        
+        fold_score = fold_train(args,log,writer)
+        
+        score.append(fold_score)
+    score = np.array(score)
+    
+    info(f'Running {args.num_folds} folds in total.')
+    if args.num_folds > 1:
+        for num_fold, fold_score in enumerate(score):
+            info(f'Seed {seed_first + num_fold} : test {args.metric} = {np.nanmean(fold_score):.6f}')
+            if args.task_num > 1:
+                for one_name,one_score in zip(args.task_names,fold_score):
+                    info(f'    Task {one_name} {args.metric} = {one_score:.6f}')
+    ave_task_score = np.nanmean(score, axis=1)
+    score_ave = np.nanmean(ave_task_score)
+    score_std = np.nanstd(ave_task_score)
+    info(f'Average test {args.metric} = {score_ave:.6f} +/- {score_std:.6f}')
+    
+    if args.task_num > 1:
+        for i,one_name in enumerate(args.task_names):
+            info(f'    average all-fold {one_name} {args.metric} = {np.nanmean(score[:, i]):.6f} +/- {np.nanstd(score[:, i]):.6f}')
+    
+    return score_ave,score_std
+
+if __name__ == '__main__':
+    args = set_train_argument()
+    log = set_log('train',args.log_path)
+    training(args,log)

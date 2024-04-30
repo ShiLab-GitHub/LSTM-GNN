@@ -1,0 +1,12 @@
+matplotlib
+networkx
+numpy
+pandas
+rdkit
+rich
+scikit-learn
+scipy
+tensorboard
+torch
+torch_scatter
+torchvision
